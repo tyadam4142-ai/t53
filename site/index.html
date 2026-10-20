@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1424">
+  <meta name="description" content="T53 Android release kit status, test-build instructions, and device setup guidance.">
+  <title>T53 Android Release Kit</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b1424;
+      color: #e8eef8;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; line-height: 1.6; }
+    a { color: #9bc7ff; }
+    a:hover { color: #c9e0ff; }
+    .shell { width: min(100% - 36px, 960px); margin: 0 auto; }
+    header { border-bottom: 1px solid #24344a; }
+    .top { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+    .brand { color: #fff; font-size: 1.05rem; font-weight: 750; letter-spacing: .02em; text-decoration: none; }
+    nav { display: flex; flex-wrap: wrap; gap: 18px; font-size: .92rem; }
+    nav a { text-decoration: none; }
+    main { padding: 56px 0 72px; }
+    .eyebrow { color: #82b6ff; font-size: .78rem; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+    h1 { max-width: 720px; margin: 10px 0 14px; font-size: clamp(2.3rem, 7vw, 4.3rem); line-height: 1.06; letter-spacing: -.045em; }
+    h2 { margin: 0 0 9px; font-size: 1.23rem; }
+    p { margin: 0 0 15px; color: #b9c6d8; }
+    .lead { max-width: 720px; font-size: 1.12rem; }
+    .status { margin: 28px 0 24px; padding: 20px 22px; border: 1px solid #425470; border-left: 4px solid #f2c66d; border-radius: 12px; background: #121f33; }
+    .status strong { display: block; margin-bottom: 5px; color: #ffe3a3; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+    .card { padding: 22px; border: 1px solid #263951; border-radius: 14px; background: #101c2e; }
+    .card p:last-child { margin-bottom: 0; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin-top: 4px; padding: 9px 15px; border: 1px solid #6fa7f3; border-radius: 9px; background: #1c4b83; color: #fff; font-weight: 700; text-decoration: none; }
+    .button:hover { background: #245f9f; }
+    .note { margin-top: 20px; padding-top: 18px; border-top: 1px solid #24344a; font-size: .93rem; }
+    footer { padding: 20px 0 32px; border-top: 1px solid #24344a; color: #98a9bf; font-size: .86rem; }
+    @media (max-width: 640px) {
+      .top { align-items: flex-start; flex-direction: column; justify-content: center; padding: 16px 0; }
+      nav { gap: 14px; }
+      main { padding-top: 38px; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="shell top">
+      <a class="brand" href="./">T53 · Telecom 53</a>
+      <nav aria-label="Main navigation">
+        <a href="https://github.com/tyadam4142-ai/t53">Source repository</a>
+        <a href="https://github.com/tyadam4142-ai/t53/actions">Builds</a>
+      </nav>
+    </div>
+  </header>
+  <main class="shell">
+    <div class="eyebrow">Android release kit · source v1.0.2</div>
+    <h1>T53 for Android</h1>
+    <p class="lead">Build and test the separate T53 Parent dashboard app and T53 Child managed-device app. This page reports the actual release state; it does not offer unverified APKs as production downloads.</p>
+
+    <section class="status" aria-labelledby="release-status">
+      <strong id="release-status">No verified APK downloads are published yet.</strong>
+      <p>The repository currently contains Android source and build workflows, but no compiled APK artifacts. Run the test build and review its result before installing. The source package reports app version 1.0.0; the release-kit documentation is version 1.0.2.</p>
+      <a class="button" href="https://github.com/tyadam4142-ai/t53/actions/workflows/build-vivo-test-apks.yml">Build test APKs on GitHub</a>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="eyebrow">Parent</div>
+        <h2>T53 Parent</h2>
+        <p>The Android app is a WebView shell for the hosted parent dashboard. Its login and management features depend on the live T53 website and backend.</p>
+        <p><a href="https://github.com/tyadam4142-ai/t53/blob/main/VIVO_TEST_GUIDE.md">Vivo install and test guide</a></p>
+      </section>
+      <section class="card">
+        <div class="eyebrow">Child</div>
+        <h2>T53 Child</h2>
+        <p>Installing the app alone does not enable managed-device restrictions. Device-owner provisioning can restrict or lock down a phone and should only be tested on a spare device you can wipe.</p>
+        <p><a href="https://github.com/tyadam4142-ai/t53/blob/main/docs/ANDROID_CHILD_SETUP.md">Managed-device setup and recovery</a></p>
+      </section>
+      <section class="card">
+        <h2>Test builds</h2>
+        <p>The manual/CI workflow compiles debug-signed test APKs and uploads them as short-lived GitHub Actions artifacts after a successful run. They are for testing, not public production distribution.</p>
+        <p><a href="https://github.com/tyadam4142-ai/t53/actions/workflows/build-vivo-test-apks.yml">Open test build workflow</a></p>
+      </section>
+      <section class="card">
+        <h2>Production releases</h2>
+        <p>Production APKs require the owner's release key, successful signature and package checks, and real-device testing. No signing secrets or release APKs are included in this source kit.</p>
+        <p><a href="https://github.com/tyadam4142-ai/t53/blob/main/docs/ANDROID_PLAY_AND_DIRECT.md">Read the distribution guide</a></p>
+      </section>
+    </div>
+
+    <p class="note">T53 Child is intended for devices you own or are authorized to manage. Do not provision a daily-use phone or a device containing personal data for destructive enrollment tests.</p>
+  </main>
+  <footer>
+    <div class="shell">T53 Android source and status · <a href="https://github.com/tyadam4142-ai/t53">tyadam4142-ai/t53</a></div>
+  </footer>
+</body>
+</html>

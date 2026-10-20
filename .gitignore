@@ -1,0 +1,17 @@
+# Android/Gradle generated output
+.gradle/
+**/build/
+local.properties
+
+# Do not commit release keys, signing data, or test binaries
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.apk
+*.aab
+
+# IDE/workstation metadata
+.idea/
+.DS_Store
+Thumbs.db

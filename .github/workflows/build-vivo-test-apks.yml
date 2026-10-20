@@ -1,0 +1,117 @@
+name: Build T53 Vivo test APKs
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - '.github/workflows/build-vivo-test-apks.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: t53-vivo-test-apks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-apks:
+    name: Compile and package test APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Run offline source and website-script checks
+        run: |
+          python3 tools/verify-release-kit.py
+          node --check website/backend/scripts/publish-android-apks.mjs
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android API 36 build tools
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.11.1'
+          cache-provider: basic
+
+      - name: Build Child test APK
+        run: gradle --no-daemon --stacktrace -p android/t53-managed-child assembleDebug
+
+      - name: Build Parent test APK
+        run: gradle --no-daemon --stacktrace -p android/t53-parent assembleDebug
+
+      - name: Verify APK signatures and package IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp android/t53-managed-child/app/build/outputs/apk/debug/app-debug.apk dist/T53-Child-TEST.apk
+          cp android/t53-parent/app/build/outputs/apk/debug/app-debug.apk dist/T53-Parent-TEST.apk
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          "$BT/apksigner" verify --verbose dist/T53-Child-TEST.apk
+          "$BT/apksigner" verify --verbose dist/T53-Parent-TEST.apk
+          "$BT/aapt" dump badging dist/T53-Child-TEST.apk > dist/child-badging.txt
+          "$BT/aapt" dump badging dist/T53-Parent-TEST.apk > dist/parent-badging.txt
+          grep -F "package: name='com.t53.telecom53.child.debug'" dist/child-badging.txt
+          grep -F "package: name='com.t53.telecom53.parent'" dist/parent-badging.txt
+          sha256sum dist/T53-Child-TEST.apk dist/T53-Parent-TEST.apk | tee dist/SHA256SUMS.txt
+          cat > dist/README.txt <<'TXT'
+          T53 Android TEST APKs (debug-signed). Not for public production distribution.
+
+          T53-Parent-TEST.apk
+            Package: com.t53.telecom53.parent
+            Installs as a normal Android app. It opens the hosted parent dashboard over HTTPS.
+
+          T53-Child-TEST.apk
+            Package: com.t53.telecom53.child.debug
+            Debug variant, intentionally separate from the production child package.
+            Launch-only testing is safe to do on your Vivo. Full device-owner testing can
+            restrict the phone and should only be performed on a spare/factory-reset phone.
+
+          Both APKs are debug-signed test builds. The production website publisher should
+          reject them. For public release, create and safeguard your own release keystore,
+          build/sign the release variants, and test them on real devices before publishing.
+          TXT
+
+      - name: Upload Child test APK as a direct file
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/T53-Child-TEST.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Parent test APK as a direct file
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/T53-Parent-TEST.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload combined test bundle and verification report
+        uses: actions/upload-artifact@v7
+        with:
+          name: T53-Vivo-Test-APKs-and-Report
+          path: |
+            dist/T53-Child-TEST.apk
+            dist/T53-Parent-TEST.apk
+            dist/SHA256SUMS.txt
+            dist/README.txt
+            dist/child-badging.txt
+            dist/parent-badging.txt
+          if-no-files-found: error
+          retention-days: 14

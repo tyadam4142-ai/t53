@@ -1,0 +1,134 @@
+name: Build signed T53 release APKs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-signed-release:
+    name: Sign and verify release APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+
+      - name: Validate signing secrets
+        env:
+          T53_RELEASE_KEYSTORE_BASE64: ${{ secrets.T53_RELEASE_KEYSTORE_BASE64 }}
+          T53_RELEASE_STORE_PASSWORD: ${{ secrets.T53_RELEASE_STORE_PASSWORD }}
+          T53_RELEASE_KEY_ALIAS: ${{ secrets.T53_RELEASE_KEY_ALIAS }}
+          T53_RELEASE_KEY_PASSWORD: ${{ secrets.T53_RELEASE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in T53_RELEASE_KEYSTORE_BASE64 T53_RELEASE_STORE_PASSWORD T53_RELEASE_KEY_ALIAS T53_RELEASE_KEY_PASSWORD; do
+            if [[ -z "${!n}" ]]; then echo "Missing required GitHub Actions secret: $n"; exit 1; fi
+          done
+
+      - name: Run offline source and website-script checks
+        run: |
+          python3 tools/verify-release-kit.py
+          node --check website/backend/scripts/publish-android-apks.mjs
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android API 36 build tools
+        run: sdkmanager --install "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Set up Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.11.1'
+          cache-provider: basic
+
+      - name: Materialize private signing key
+        env:
+          T53_RELEASE_KEYSTORE_BASE64: ${{ secrets.T53_RELEASE_KEYSTORE_BASE64 }}
+          T53_RELEASE_STORE_PASSWORD: ${{ secrets.T53_RELEASE_STORE_PASSWORD }}
+          T53_RELEASE_KEY_ALIAS: ${{ secrets.T53_RELEASE_KEY_ALIAS }}
+          T53_RELEASE_KEY_PASSWORD: ${{ secrets.T53_RELEASE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$T53_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/t53-release.jks"
+          test -s "$RUNNER_TEMP/t53-release.jks"
+          echo "T53_RELEASE_STORE_FILE=$RUNNER_TEMP/t53-release.jks" >> "$GITHUB_ENV"
+          echo "T53_RELEASE_STORE_PASSWORD=$T53_RELEASE_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "T53_RELEASE_KEY_ALIAS=$T53_RELEASE_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "T53_RELEASE_KEY_PASSWORD=$T53_RELEASE_KEY_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Build Child release APK
+        run: gradle --no-daemon --stacktrace -p android/t53-managed-child assembleRelease
+
+      - name: Build Parent release APK
+        run: gradle --no-daemon --stacktrace -p android/t53-parent assembleRelease
+
+      - name: Verify signatures, package IDs and release flags
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp android/t53-managed-child/app/build/outputs/apk/release/app-release.apk dist/T53-Android.apk
+          cp android/t53-parent/app/build/outputs/apk/release/app-release.apk dist/T53-Parent-Android.apk
+          BT="$ANDROID_HOME/build-tools/36.0.0"
+          for f in dist/*.apk; do
+            SIG="$("$BT/apksigner" verify --verbose --print-certs "$f" 2>&1)"
+            printf '%s\n' "$SIG"
+            if printf '%s' "$SIG" | grep -qi 'CN=Android Debug'; then
+              echo "Refusing debug certificate on release artifact: $f"; exit 1
+            fi
+          done
+          "$BT/aapt" dump badging dist/T53-Android.apk > dist/child-badging.txt
+          "$BT/aapt" dump badging dist/T53-Parent-Android.apk > dist/parent-badging.txt
+          grep -F "package: name='com.t53.telecom53.child'" dist/child-badging.txt
+          grep -F "package: name='com.t53.telecom53.parent'" dist/parent-badging.txt
+          if grep -q application-debuggable dist/child-badging.txt dist/parent-badging.txt; then
+            echo 'Release APK unexpectedly marked debuggable'; exit 1
+          fi
+          sha256sum dist/T53-Android.apk dist/T53-Parent-Android.apk | tee dist/SHA256SUMS.txt
+          cat > dist/README.txt <<'TXT'
+          Signed T53 release APKs for pre-publication validation.
+          T53-Android.apk is the Managed Child app.
+          T53-Parent-Android.apk is the Parent dashboard wrapper.
+          These files are signed with the release key configured in GitHub Actions secrets.
+          Verify the source/certificate fingerprints and test on real devices before web publishing.
+          Keep the matching keystore and passwords backed up securely; do not commit them.
+          TXT
+
+      - name: Upload Child release APK as a direct file
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/T53-Android.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Parent release APK as a direct file
+        uses: actions/upload-artifact@v7
+        with:
+          path: dist/T53-Parent-Android.apk
+          archive: false
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload release verification report
+        uses: actions/upload-artifact@v7
+        with:
+          name: T53-Signed-Release-Verification
+          path: |
+            dist/SHA256SUMS.txt
+            dist/README.txt
+            dist/child-badging.txt
+            dist/parent-badging.txt
+          if-no-files-found: error
+          retention-days: 30
