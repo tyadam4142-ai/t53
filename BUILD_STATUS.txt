@@ -1,0 +1,7 @@
+T53 Android release status — v1.0.2 — 2026-10-20
+
+The user-provided Claude ZIP contains source projects and website publishing scripts but no APK binaries. This environment lacks Android SDK/build tools and cannot resolve/download Android/Gradle dependencies.
+
+This updated kit adds a GitHub Actions workflow to compile and verify both debug test APKs, uploading the Parent and Child APKs as individual direct-file artifacts. A second manual workflow signs both release APKs using the owner-controlled keystore supplied as GitHub Actions secrets. The release workflow uploads each signed APK individually plus a verification report; neither workflow deploys the website.
+
+Neither hosted workflow has been executed from this environment because no user repository is connected to the provided source and the local environment cannot download build dependencies. No direct APK has been built or attached by this session. Do not represent this ZIP as an APK or as a device-tested release. Run the workflow, inspect the result, and test the app on a real device before public release.

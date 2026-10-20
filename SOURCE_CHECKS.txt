@@ -1,0 +1,17 @@
+T53 Android release kit — checks performed in this session
+
+PASS: User-uploaded v1.0.1 archive extracted and inspected.
+PASS: Both Android source projects are present.
+PASS: No .apk binary is present in the uploaded archive.
+PASS: GitHub Actions workflow added to build both debug test APKs and upload the APKs as individual direct-file artifacts.
+PASS: Separate signed-release workflow added; signing credentials are read from GitHub Actions secrets, not source files.
+PASS: Website publisher patch now explicitly says to merge into the existing full backend instead of overwriting `package.json`.
+PASS: Child test APK uses a distinct .debug package ID to avoid impersonating the production release package.
+NOT RUN: Either hosted GitHub Actions workflow; no repository was connected to run this source bundle against.
+NOT RUN: Android Gradle compilation/resource linking in this local environment (no Gradle executable, wrapper JAR/scripts, Android SDK, aapt, or apksigner; network DNS unavailable).
+NOT RUN: Real APK signature verification, device installation, live server login, Vivo/Funtouch OS policy tests, or device-owner provisioning.
+PASS: Both workflow YAML files parse, and all 12 embedded shell run steps pass `bash -n`.
+
+Historical v1.0.1 kit notes claimed Kotlin type-checking against Android API 36 stubs. That claim was not independently reproducible in this session because android.jar is not available here.
+
+Therefore: this archive is a source/CI test kit, not an APK. No build or device test is claimed unless the included GitHub Actions job succeeds and the app is tested on a physical phone.

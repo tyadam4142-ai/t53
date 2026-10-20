@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Download T53 — Telecom 53</title>
+<meta name="description" content="Download the T53 Parent app or the managed T53 Child app for Android.">
+<link rel="stylesheet" href="/t53-ui.css">
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <a class="logo" href="/"><span class="logo-badge">T</span><span><b>T53</b><small>Telecom 53</small></span></a>
+  <nav class="tabs"><a class="tab on" href="/download/">Get the apps</a><a class="tab" href="/parent/">Parent sign in</a></nav>
+</div></header>
+<main class="wrap">
+  <section class="card" style="margin-top:28px">
+    <div class="eyebrow">Dynamic Robotics 53</div>
+    <h1 style="margin-top:6px">Get T53 for Android</h1>
+    <p class="muted" style="max-width:720px">Choose the app for your role. The Parent app opens the T53 parent dashboard. The Child app is intended for a properly provisioned, managed Android device.</p>
+    <div class="two" style="margin-top:20px">
+      <article class="card">
+        <div class="eyebrow">For parents</div><h2 style="margin-top:6px">T53 Parent</h2>
+        <p class="muted">Sign in, review your dashboard and manage child-device settings.</p>
+        <a class="btn primary" id="parent-btn" href="#" aria-disabled="true">Checking…</a>
+        <p class="muted" id="parent-status">Checking for the latest parent build…</p>
+        <dl class="kv" id="parent-meta" hidden><dt>Version</dt><dd id="parent-version"></dd><dt>Size</dt><dd id="parent-size"></dd><dt>SHA-256</dt><dd class="mono" id="parent-sha"></dd></dl>
+        <button class="link" id="parent-copy" type="button" hidden>Copy SHA-256</button>
+      </article>
+      <article class="card">
+        <div class="eyebrow">For the child's phone</div><h2 style="margin-top:6px">T53 Child</h2>
+        <p class="muted">Applies parent-approved app restrictions after device-owner provisioning. A normal install alone does not activate the full protections.</p>
+        <a class="btn primary" id="child-btn" href="#" aria-disabled="true">Checking…</a>
+        <p class="muted" id="child-status">Checking for the latest child build…</p>
+        <dl class="kv" id="child-meta" hidden><dt>Version</dt><dd id="child-version"></dd><dt>Size</dt><dd id="child-size"></dd><dt>SHA-256</dt><dd class="mono" id="child-sha"></dd></dl>
+        <button class="link" id="child-copy" type="button" hidden>Copy SHA-256</button>
+      </article>
+    </div>
+    <p class="muted" style="margin-top:14px">Direct APKs are for private/managed distribution. Android may require you to allow installation from your browser. Only install APKs you trust.</p>
+  </section>
+  <section class="two">
+    <article class="card">
+      <div class="eyebrow">Child setup</div><h2 style="margin-top:6px">Provision the child's phone</h2>
+      <p class="muted">Full app blocking and removal protection require T53 to be the phone's device owner. This setup normally applies only to a new or factory-reset phone without accounts.</p>
+      <div id="qr-block" hidden>
+        <p><b>QR setup</b></p><div class="qrbox"><img id="qr-img" alt="T53 child phone setup QR code" src="/download/provision-qr.svg" width="340" height="340"></div>
+        <ol class="steps"><li>Start from a new or factory-reset phone; do not add an account first.</li><li>At the Android Welcome screen, tap the same spot six times.</li><li>Connect to Wi-Fi and scan the QR code shown here.</li><li>Wait for Android to finish installing and provisioning T53.</li></ol>
+      </div>
+      <div id="qr-missing" class="muted"><p>The provisioning QR appears after the signed child APK is published.</p></div>
+      <details style="margin-top:14px"><summary class="link">Use a computer (advanced)</summary><ol class="steps"><li>Install the child APK on a fresh test phone.</li><li>Enable Developer options and USB debugging.</li><li>Run the device-owner command shown in the T53 child setup screen.</li></ol><p class="muted">Do not run device-owner provisioning on a phone with important data; it may require a factory reset.</p></details>
+    </article>
+    <article class="card">
+      <div class="eyebrow">Before you begin</div><h2 style="margin-top:6px">Important notes</h2>
+      <ol class="steps"><li>Install the Parent app on the parent's phone, or use <a href="/parent/">the web dashboard</a>.</li><li>Install/provision T53 Child only on a device you own or are authorized to manage.</li><li>Activate the child device using its T53 license code.</li><li>Review the app restrictions after the child phone syncs.</li></ol>
+      <p class="muted" style="margin-top:16px">T53 cannot bypass Android security controls on an unmanaged device. Do not advertise the child app as fully protected until provisioning and on-device tests succeed.</p>
+    </article>
+  </section>
+</main>
+<script>
+(async function () {
+  const fallbacks = { child: {button:'child-btn',status:'child-status',meta:'child-meta',version:'child-version',size:'child-size',sha:'child-sha',copy:'child-copy'}, parent: {button:'parent-btn',status:'parent-status',meta:'parent-meta',version:'parent-version',size:'parent-size',sha:'parent-sha',copy:'parent-copy'} };
+  function unavailable(role, message) { const e=fallbacks[role]; document.getElementById(e.button).textContent='APK not available yet'; document.getElementById(e.button).setAttribute('aria-disabled','true'); document.getElementById(e.button).removeAttribute('href'); document.getElementById(e.status).textContent=message; }
+  async function show(role, entry, updated) {
+    const e=fallbacks[role];
+    if (!entry || typeof entry.file!=='string' || !/^[A-Za-z0-9._-]+\.apk$/.test(entry.file)) { unavailable(role,'No published signed build was found.'); return false; }
+    const head=await fetch('/download/'+entry.file,{method:'HEAD',cache:'no-store'});
+    if (!head.ok) { unavailable(role,'The download file is missing from the website.'); return false; }
+    const b=document.getElementById(e.button); b.href='/download/'+entry.file; b.textContent='Download '+(role==='child'?'T53 Child':'T53 Parent'); b.removeAttribute('aria-disabled');
+    document.getElementById(e.status).textContent='Android '+(role==='child'?'9':'8')+' or newer. Check the SHA-256 after downloading.';
+    document.getElementById(e.version).textContent=entry.version||'';
+    document.getElementById(e.size).textContent=entry.sizeBytes?(entry.sizeBytes/1048576).toFixed(1)+' MB':'';
+    document.getElementById(e.sha).textContent=entry.sha256||''; document.getElementById(e.meta).hidden=false;
+    const copy=document.getElementById(e.copy); if(entry.sha256){copy.hidden=false;copy.onclick=()=>{if(navigator.clipboard) navigator.clipboard.writeText(entry.sha256).then(()=>copy.textContent='Copied');};}
+    return true;
+  }
+  try {
+    let m;
+    const res=await fetch('/download/apks.json',{cache:'no-store'});
+    if(res.ok) m=await res.json();
+    if(m && m.child && m.parent) {
+      const childOK=await show('child',m.child,m.updated); await show('parent',m.parent,m.updated);
+      if(childOK){const q=await fetch('/download/provision-qr.svg',{method:'HEAD',cache:'no-store'});if(q.ok){document.getElementById('qr-block').hidden=false;document.getElementById('qr-missing').hidden=true;}}
+    } else {
+      // Legacy fallback only exposes the child APK from the previous one-app publisher.
+      let legacy; const l=await fetch('/download/apk.json',{cache:'no-store'}); if(l.ok) legacy=await l.json();
+      if(legacy && legacy.file) await show('child',legacy,legacy.updated); else unavailable('child','The child APK is not published yet.');
+      unavailable('parent','The parent APK is not published yet.');
+    }
+  } catch(e) { unavailable('child','Could not check the downloads. Please try again.'); unavailable('parent','Could not check the downloads. Please try again.'); }
+})();
+</script>
+</body></html>

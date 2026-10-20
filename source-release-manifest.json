@@ -1,0 +1,11 @@
+{
+  "product": "T53 Telecom 53",
+  "releaseType": "source-release-candidate",
+  "version": "1.0.0",
+  "worker": "t53-telecom-53",
+  "database": "t53-telecom-53-db",
+  "iosBundleID": "com.dynamicrobotics53.t53",
+  "iosDeploymentTarget": "17.0",
+  "androidTargetSdk": 36,
+  "notes": "Source bundle. Final Apple/Google signed binaries and store entitlements must be produced in the respective build environments and approved distribution accounts."
+}

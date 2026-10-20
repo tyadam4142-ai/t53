@@ -1,0 +1,24 @@
+T53 Android release status — v1.0.2 (2026-10-20)
+
+Source findings:
+- The uploaded Claude ZIP has Android source projects and website release tooling, but no .apk binary.
+- The Parent app is a secure HTTPS WebView shell for the parent dashboard; it is not a separate native rewrite.
+- The Child app requires Android device-owner provisioning for app blocking and kiosk restrictions.
+- This kit now contains two GitHub Actions workflows: a debug APK build for Vivo/device testing, and a signed release APK build using owner-controlled GitHub Actions secrets.
+- It also contains instructions for safely merging the dual-download page/publisher into the original T53 backend.
+
+Environment blocker:
+- The current build environment has no Gradle executable or wrapper JAR, Android SDK/android.jar, aapt, or apksigner.
+- Direct download of build dependencies failed because the environment could not resolve the Gradle host.
+- No GitHub source repository is connected to this source bundle, so the hosted workflows could not be run from this session.
+
+What was validated locally:
+- 14 offline source/project checks passed.
+- 11 XML files parsed successfully.
+- Website publisher JavaScript and inline page JavaScript passed Node syntax checks.
+- Both workflow YAML files parsed, and all embedded bash run steps passed `bash -n`.
+
+Not validated:
+- Gradle compilation/resource linking, signing of actual APKs, release certificate identity, live dashboard/API availability, Android install/runtime, real Vivo/Funtouch OS restrictions, or device-owner provisioning/removal flows.
+
+Result: no APK binary is attached. The ZIP is a source and automated-build kit, not a tested release. Run the CI workflow and perform real-device tests before public distribution.
