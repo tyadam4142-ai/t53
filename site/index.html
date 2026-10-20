@@ -65,9 +65,9 @@
     <p class="lead">Build and test the separate T53 Parent dashboard app and T53 Child managed-device app. This page reports the actual release state; it does not offer unverified APKs as production downloads.</p>
 
     <section class="status" aria-labelledby="release-status">
-      <strong id="release-status">No verified APK downloads are published yet.</strong>
-      <p>The repository currently contains Android source and build workflows, but no compiled APK artifacts. Run the test build and review its result before installing. The source package reports app version 1.0.0; the release-kit documentation is version 1.0.2.</p>
-      <a class="button" href="https://github.com/tyadam4142-ai/t53/actions/workflows/build-vivo-test-apks.yml">Build test APKs on GitHub</a>
+      <strong id="release-status">Test APKs built and verified; no production release is published.</strong>
+      <p>The successful GitHub Actions run compiled both apps, checked their APK signatures and package IDs, and uploaded debug-signed test artifacts. They are for testing only and expire after 14 days. The source package reports app version 1.0.0; the release-kit documentation is version 1.0.2.</p>
+      <a class="button" href="https://github.com/tyadam4142-ai/t53/actions/runs/39387764493">View verified test APK artifacts</a>
     </section>
 
     <div class="grid">
@@ -84,8 +84,8 @@
         <p><a href="https://github.com/tyadam4142-ai/t53/blob/main/docs/ANDROID_CHILD_SETUP.md">Managed-device setup and recovery</a></p>
       </section>
       <section class="card">
-        <h2>Test builds</h2>
-        <p>The manual/CI workflow compiles debug-signed test APKs and uploads them as short-lived GitHub Actions artifacts after a successful run. They are for testing, not public production distribution.</p>
+        <h2>Verified test builds</h2>
+        <p>The current test run produced both debug-signed APKs and a verification report. These temporary artifacts are suitable for installation and testing, not public production distribution.</p>
         <p><a href="https://github.com/tyadam4142-ai/t53/actions/workflows/build-vivo-test-apks.yml">Open test build workflow</a></p>
       </section>
       <section class="card">
