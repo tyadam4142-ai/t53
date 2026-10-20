@@ -61,6 +61,10 @@ class Store(context: Context) {
         get() = sp.getLong("lastSync", 0L)
         set(v) { sp.edit().putLong("lastSync", v).apply() }
 
+    var connectionHealthy: Boolean
+        get() = sp.getBoolean("connectionHealthy", false)
+        set(v) { sp.edit().putBoolean("connectionHealthy", v).apply() }
+
     /** Temporary parent approvals: package -> expiry (epoch millis). */
     private fun readGrants(): MutableMap<String, Long> {
         val out = HashMap<String, Long>()

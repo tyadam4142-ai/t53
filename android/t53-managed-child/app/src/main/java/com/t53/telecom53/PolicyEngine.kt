@@ -8,7 +8,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 
-enum class SyncResult { OK, NOT_ENROLLED, NOT_OWNER, OFFLINE, RELEASED, ERROR }
+enum class SyncResult { OK, STANDARD_READY, NOT_ENROLLED, NOT_OWNER, OFFLINE, RELEASED, ERROR }
 
 /** Talks to the T53 server and makes the phone match what the parent chose. */
 object PolicyEngine {
@@ -23,8 +23,21 @@ object PolicyEngine {
             confirmReleaseIfNeeded(st)
             return SyncResult.RELEASED
         }
-        if (st.token == null) return SyncResult.NOT_ENROLLED
-        if (!Enforcer.isOwner(app)) return SyncResult.NOT_OWNER
+        val token = st.token ?: return SyncResult.NOT_ENROLLED
+        if (!Enforcer.isOwner(app)) {
+            st.protectionActive = false
+            st.connectionHealthy = false
+            return try {
+                Api.status(st.deviceId, token, battery(app), false, appVersion(app), "Android ${Build.VERSION.RELEASE}")
+                st.lastSyncMillis = System.currentTimeMillis()
+                st.connectionHealthy = true
+                SyncResult.STANDARD_READY
+            } catch (_: ApiException) {
+                SyncResult.ERROR
+            } catch (_: Exception) {
+                SyncResult.OFFLINE
+            }
+        }
         return try {
             try {
                 run(app, st)
@@ -32,9 +45,11 @@ object PolicyEngine {
                 if (e.status == 401 && renewSession(st)) run(app, st) else throw e
             }
         } catch (e: ApiException) {
+            st.connectionHealthy = false
             applyLocal(app)
             if (e.status == 403 || e.status == 401) SyncResult.ERROR else SyncResult.OFFLINE
         } catch (_: Exception) {
+            st.connectionHealthy = false
             applyLocal(app) // offline: the last rules stay in force
             SyncResult.OFFLINE
         }
@@ -92,6 +107,7 @@ object PolicyEngine {
 
         Api.status(id, tok, battery(app), enforced, appVersion(app), "Android ${Build.VERSION.RELEASE}")
         st.lastSyncMillis = System.currentTimeMillis()
+        st.connectionHealthy = true
         return SyncResult.OK
     }
 

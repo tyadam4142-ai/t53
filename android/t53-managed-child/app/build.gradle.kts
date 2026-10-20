@@ -53,3 +53,6 @@ android {
 kotlin { compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) } }
 
 // No third-party SDKs in the child app by default.
+dependencies {
+    testImplementation("junit:junit:4.13.2")
+}

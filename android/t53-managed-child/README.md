@@ -1,16 +1,18 @@
-# T53 Android Managed Child
+# T53 Child for Android
 
-The managed-device app applies parent-approved app rules only after Android successfully provisions T53 as the device owner. Without that setup it shows its setup instructions and does not pretend to be enforcing the policy.
+T53 Child has two modes:
 
-## Build
+- **Standard mode:** install and open the app, then enter the T53 license code and the child's name to pair. The app remains usable without Device Owner enrollment. Standard mode reports a connection status but does not block apps or apply Android system restrictions.
+- **Advanced device management:** an optional path opened only when the user taps **Set up advanced device management**. Device Owner status is checked through Android's `DevicePolicyManager`; a pairing response or saved preference is not treated as enrollment.
 
-- Recommended: use the repository-root GitHub Actions workflows in `../../.github/workflows/`.
-- For local build, use Android Studio with JDK 17, Android SDK Platform 36 and Android build-tools 36.0.0. Gradle plugin is 8.9.1 and Kotlin plugin is 2.1.20; Gradle 8.11.1 is configured in `gradle/wrapper/gradle-wrapper.properties`.
-- The source archive intentionally omits the Gradle wrapper launch scripts and JAR. Do not assume `./gradlew` exists. Use the cloud workflow or install Gradle 8.11.1 and invoke Gradle directly.
-- For a signed CI release, see `VIVO_TEST_GUIDE.md` and configure the owner-controlled release keystore as GitHub Actions secrets. Never commit the key/passwords.
+App blocking, kiosk mode, app suspension, uninstall protection, and device restrictions are only attempted after Android confirms T53 is the Device Owner. Usage Access, Accessibility monitoring, and VPN filtering are not implemented by this app. See [`docs/ANDROID_CHILD_SETUP.md`](../../docs/ANDROID_CHILD_SETUP.md) before enabling advanced management.
 
-## App details
-- Production package ID: `com.t53.telecom53.child` (debug builds append `.debug`).
+The current repository does not include the backend implementation. Backend pairing/authentication and physical-device behavior have not been verified; do not treat local enrollment state as proof that the parent connection works.
+
+## Build and tests
+
+- Package ID: `com.t53.telecom53.child` (debug builds append `.debug`).
 - `minSdk` 28 (Android 9); `targetSdk` 36.
-- Uses Android device-owner and lock-task APIs. Full restrictions can lock down a device and should be tested only on a spare/factory-reset phone.
-- Precise location is not included in this build. Review `docs/ANDROID_PLAY_AND_DIRECT.md` before broader distribution.
+- Build tools: JDK 17, Android SDK Platform 36, Android build-tools 36.0.0, Gradle 8.11.1.
+- Run `testDebugUnitTest` for the Child setup-state regression tests, then `assembleDebug` to build the test APK.
+- The repository intentionally omits Gradle wrapper launch scripts and the wrapper JAR. Use the GitHub Actions workflow or install the documented Gradle version locally.

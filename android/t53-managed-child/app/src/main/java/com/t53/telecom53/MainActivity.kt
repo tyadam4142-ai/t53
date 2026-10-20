@@ -31,11 +31,8 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * T53 child phone. One screen that is also the phone's home screen:
- *  - not set up as device owner -> setup instructions
- *  - not enrolled               -> enter the license code
- *  - enrolled                   -> only the apps the parent approved
- *  - parent approved removal    -> unlocked, can be uninstalled
+ * T53 Child supports ordinary pairing. System restrictions are available only in
+ * the optional, Android-verified Device Owner mode.
  */
 class MainActivity : Activity() {
     private val bg = Color.rgb(7, 16, 29)
@@ -45,6 +42,7 @@ class MainActivity : Activity() {
     private lateinit var store: Store
     private var busy = false
     private var showingRequestScreen = false
+    private var showingAdvancedSetup = false
     private var lastScreen = ""
 
     private val poll = object : Runnable {
@@ -63,7 +61,6 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        showingRequestScreen = false
         render()
         handler.removeCallbacks(poll)
         handler.post(poll)
@@ -74,23 +71,28 @@ class MainActivity : Activity() {
         handler.removeCallbacks(poll)
     }
 
-    // The phone's Back button must not leave the T53 home screen.
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (showingRequestScreen) { showingRequestScreen = false; render() }
+        when {
+            showingRequestScreen -> { showingRequestScreen = false; render() }
+            showingAdvancedSetup -> { showingAdvancedSetup = false; render() }
+            else -> super.onBackPressed()
+        }
     }
 
     // ---------------------------------------------------------------- state
 
     private fun render() {
         val owner = Enforcer.isOwner(this)
-        when {
-            store.released -> showReleased()
-            !owner && store.token == null -> showSetup()
-            !owner -> showSetup() // owner lost while enrolled: show how to fix it
-            store.token == null -> showEnroll()
-            showingRequestScreen -> showRequestScreen()
-            else -> { showHub(); enterKioskIfNeeded() }
+        when (SetupStateMachine.resolve(store.token != null, owner, store.released)) {
+            ChildSetupState.RELEASED -> showReleased()
+            ChildSetupState.NOT_PAIRED -> if (showingAdvancedSetup) showSetup() else showEnroll()
+            ChildSetupState.STANDARD_READY -> if (showingAdvancedSetup) showSetup() else showStandardHub()
+            ChildSetupState.ADVANCED_READY -> {
+                if (showingAdvancedSetup) showSetup()
+                else if (showingRequestScreen) showRequestScreen()
+                else { showHub(); enterKioskIfNeeded() }
+            }
         }
     }
 
@@ -104,7 +106,10 @@ class MainActivity : Activity() {
                 if (isFinishing) return@runOnUiThread
                 if (!silent) toast(when (result) {
                     SyncResult.OK -> "Updated"
+                    SyncResult.STANDARD_READY -> "Parent connection updated"
                     SyncResult.OFFLINE -> "No connection. The last rules stay on."
+                    SyncResult.NOT_ENROLLED -> "Pair this phone with your parent first."
+                    SyncResult.NOT_OWNER -> "Advanced device management is unavailable."
                     else -> "Could not update"
                 })
                 // Re-draw only if something that changes the screen changed.
@@ -115,7 +120,7 @@ class MainActivity : Activity() {
     }
 
     private fun signature(): String =
-        "${store.released}|${store.token != null}|${Enforcer.isOwner(this)}|${store.effectiveAllowed().sorted()}|$showingRequestScreen"
+        "${store.released}|${store.token != null}|${Enforcer.isOwner(this)}|${store.effectiveAllowed().sorted()}|${store.lastSyncMillis}|${store.protectionActive}|$showingRequestScreen|$showingAdvancedSetup"
 
     private fun enterKioskIfNeeded() {
         if (!Enforcer.isOwner(this) || store.released || store.token == null) return
@@ -134,12 +139,13 @@ class MainActivity : Activity() {
         val cmd = Enforcer.setupCommand(this)
         val root = column()
         root.addView(title("T53"))
-        root.addView(body("One-time setup", 20f, Color.WHITE, bold = true))
+        root.addView(body("Optional advanced device management", 20f, Color.WHITE, bold = true))
         root.addView(body(
-            "To protect this phone, Android needs T53 set as its \"device owner\". " +
-            "This can only be done once, from a computer, on a phone that has no Google account added yet " +
-            "(a new or freshly reset phone).", 15f, Color.LTGRAY))
-        root.addView(body("1. Turn on Developer options and USB debugging.\n2. Connect the phone to a computer with adb.\n3. Run this command:", 15f, Color.LTGRAY))
+            "This mode is for a dedicated or appropriately backed-up test or child device. Initial Device Owner provisioning generally requires a factory-reset device. Exact steps depend on the phone and Android version. Do not continue unless you understand and intend to complete setup.",
+            15f, Color.LTGRAY))
+        root.addView(body(
+            "If you choose to proceed, enable Developer options and USB debugging on that device, connect it to a computer, then run this command. T53 will not run ADB or reset the phone.",
+            15f, Color.LTGRAY))
         root.addView(TextView(this).apply {
             text = cmd; textSize = 13f; typeface = Typeface.MONOSPACE; setTextColor(gold)
             setBackgroundColor(card); setPadding(dp(14), dp(12), dp(14), dp(12)); setTextIsSelectable(true)
@@ -148,7 +154,12 @@ class MainActivity : Activity() {
             val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             cm.setPrimaryClip(ClipData.newPlainText("T53 setup", cmd)); toast("Copied")
         })
-        root.addView(button("I ran it. Check again") { render(); if (!Enforcer.isOwner(this)) toast("Not set up yet") })
+        root.addView(button("Check Device Owner status") {
+            showingAdvancedSetup = false
+            render()
+            if (!Enforcer.isOwner(this)) toast("Device Owner is not enabled. Standard mode remains available.")
+        })
+        root.addView(button("Back to standard setup") { showingAdvancedSetup = false; render() })
         setContentView(scroll(root))
     }
 
@@ -156,6 +167,8 @@ class MainActivity : Activity() {
         lastScreen = signature()
         val root = column()
         root.addView(title("T53"))
+        root.addView(body("Welcome to T53 Child", 20f, Color.WHITE, bold = true))
+        root.addView(body("Pair with your parent to connect this phone. Standard mode does not block apps or apply system restrictions.", 15f, Color.LTGRAY))
         root.addView(body("Connect this phone to your parent's T53 account.", 16f, Color.LTGRAY))
         val license = field("T53 license code", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS)
         val name = field("Child's name", InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS)
@@ -171,7 +184,6 @@ class MainActivity : Activity() {
                 try {
                     val r = Api.enroll(code, child, store.deviceId)
                     store.token = r.getString("deviceToken")
-                    store.licenseCode = code
                     store.childName = child
                     PolicyEngine.sync(applicationContext)
                 } catch (e: ApiException) {
@@ -189,6 +201,47 @@ class MainActivity : Activity() {
         root.addView(name, matchWrap(top = dp(8)))
         root.addView(go, matchWrap(top = dp(12)))
         root.addView(msg, matchWrap(top = dp(8)))
+        root.addView(button("Set up advanced device management") {
+            AlertDialog.Builder(this)
+                .setTitle("Advanced setup")
+                .setMessage("Device Owner setup is optional and generally requires a dedicated or backed-up device that may need a factory reset. Your everyday phone will not be reset by T53. Continue only if you intend to complete this setup.")
+                .setPositiveButton("Continue") { _, _ -> showingAdvancedSetup = true; render() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        }, matchWrap(top = dp(20)))
+        setContentView(scroll(root))
+    }
+
+    private fun showStandardHub() {
+        lastScreen = signature()
+        val root = column()
+        root.addView(title("T53"))
+        root.addView(body(
+            if (store.childName.isNotBlank()) "Hi ${store.childName}" else "T53 Child",
+            20f, Color.WHITE, bold = true))
+        root.addView(body("This phone is paired with your parent in standard mode.", 15f, Color.LTGRAY))
+
+        val recentSync = store.lastSyncMillis > 0L &&
+            store.connectionHealthy &&
+            System.currentTimeMillis() - store.lastSyncMillis <= 45L * 60L * 1000L
+        val connection = when {
+            recentSync -> "Connected to parent"
+            store.lastSyncMillis > 0L -> "Connection unavailable. Last successful sync: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(store.lastSyncMillis))}"
+            else -> "Not connected yet. Check your internet connection and retry."
+        }
+        root.addView(body(connection, 14f, if (recentSync) Color.rgb(82, 211, 170) else Color.rgb(255, 190, 90)), matchWrap(top = dp(12)))
+        root.addView(body(
+            "App blocking, kiosk mode, uninstall protection, and device restrictions are unavailable in standard mode. You can continue using the phone normally.",
+            15f, Color.LTGRAY), matchWrap(top = dp(12)))
+        root.addView(button("Retry connection") { syncNow(silent = false) })
+        root.addView(button("Set up advanced device management") {
+            AlertDialog.Builder(this)
+                .setTitle("Advanced setup")
+                .setMessage("Device Owner setup is optional and generally requires a dedicated or backed-up device that may need a factory reset. Your everyday phone will not be reset by T53. Continue only if you intend to complete this setup.")
+                .setPositiveButton("Continue") { _, _ -> showingAdvancedSetup = true; render() }
+                .setNegativeButton("Cancel", null)
+                .show()
+        })
         setContentView(scroll(root))
     }
 
@@ -232,7 +285,12 @@ class MainActivity : Activity() {
         }
 
         root.addView(button("Ask my parent for another app") { showingRequestScreen = true; render() }, matchWrap(top = dp(24)))
-        val status = if (store.lastSyncMillis == 0L) "Connecting to your parent…" else if (store.protectionActive) "Protected by T53" else "T53 setup incomplete"
+        val status = when {
+            store.lastSyncMillis == 0L -> "Connecting to your parent…"
+            store.protectionActive && System.currentTimeMillis() - store.lastSyncMillis <= 45L * 60L * 1000L -> "Managed restrictions applied"
+            store.protectionActive -> "Last known managed restrictions applied; connection status is unknown"
+            else -> "Managed restrictions are not confirmed"
+        }
         root.addView(body(status, 12f, Color.GRAY), matchWrap(top = dp(12)))
         setContentView(scroll(root))
     }

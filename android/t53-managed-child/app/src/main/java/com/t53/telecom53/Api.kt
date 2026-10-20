@@ -14,7 +14,9 @@ object Api {
     private fun enc(s: String) = URLEncoder.encode(s, "UTF-8")
 
     private fun request(method: String, path: String, token: String?, body: JSONObject?): JSONObject {
-        val conn = URL(Config.API_BASE + path).openConnection() as HttpURLConnection
+        val url = URL(Config.API_BASE + path)
+        require(url.protocol == "https") { "T53 API must use HTTPS" }
+        val conn = url.openConnection() as HttpURLConnection
         try {
             conn.requestMethod = method
             conn.connectTimeout = 10_000

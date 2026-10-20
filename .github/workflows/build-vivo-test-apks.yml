@@ -27,6 +27,7 @@ jobs:
       - name: Run offline source and website-script checks
         run: |
           python3 tools/verify-release-kit.py
+          python3 tools/verify-child-startup.py
           node --check website/backend/scripts/publish-android-apks.mjs
 
       - name: Set up Java 17
@@ -49,6 +50,9 @@ jobs:
 
       - name: Build Child test APK
         run: gradle --no-daemon --stacktrace -p android/t53-managed-child assembleDebug
+
+      - name: Run Child startup regression tests
+        run: gradle --no-daemon --stacktrace -p android/t53-managed-child testDebugUnitTest
 
       - name: Build Parent test APK
         run: gradle --no-daemon --stacktrace -p android/t53-parent assembleDebug

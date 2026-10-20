@@ -1,81 +1,46 @@
-# T53 Android: locked child phone, approved apps, parent password
+# T53 Child setup
 
-## What the parent gets
-1. **Dashboard password.** First sign-in uses an emailed code, then the parent creates a password (8+ characters, a letter and a number). After that: email + password. 5 wrong tries lock the account for 15 minutes. "Forgot password" = emailed code, then choose a new one.
-2. **Approved apps.** In the dashboard, open a child and tick the apps they may use. Everything else on the phone is blocked. The phone applies changes within about a minute when online, and re-checks at least every 15 minutes in the background.
-3. **Cannot be deleted by the child.** T53 is the phone's device owner: it cannot be uninstalled, force-stopped, cleared, or removed by factory reset, safe mode, or adding a new user.
-4. **Removal only with the parent's password.** Dashboard > child > "Remove T53 from this phone" > enter password > "Allow removal". The phone unlocks itself the next time it is online, tells the server, and then T53 can be uninstalled. "Keep protected" cancels it before the phone picks it up.
-5. **Ask for an app.** The child can ask for a blocked app. The parent gets "Allow 30 min" or "Deny". When allowed, the app opens for that time and then blocks again by itself.
+T53 Child can be installed and opened as a normal Android app. Device Owner enrollment is an optional advanced mode, not a prerequisite for standard startup or pairing.
 
-## One-time phone setup (required)
-Android only allows these protections for a device owner, and only on a phone with **no accounts added yet** (new, or factory reset and skip adding a Google account).
+## Standard setup
 
-### Easiest: QR code (no computer)
-1. Publish the APK (see `ANDROID_PLAY_AND_DIRECT.md`). That creates the QR on https://t53.dynamicrobotics53.com/download/.
-2. Factory reset the child phone (or use a new one). On the first Welcome screen tap the same spot **6 times**.
-3. Connect to Wi-Fi when asked, then scan the QR code from the download page (open it on another screen).
-4. Android downloads and installs T53 and makes it the device owner. Wait until it finishes.
-5. Open T53, enter the license code and the child's name.
-6. In the dashboard, open the child and tick the apps to allow (tick **Phone** so the child can call).
+1. Install T53 Child on the child's phone and open it.
+2. Enter the T53 license code and the child's name, then select **Connect**.
+3. Keep the phone online while the app checks in with the T53 service.
+4. The Child screen reports whether the latest parent connection succeeded. If it cannot connect, retry after checking the network; the phone remains usable in standard mode.
 
-### Alternative: adb (computer)
-1. Install the T53 child APK (do not sign in to any account).
-2. Settings > About phone > tap Build number 7 times. Then Developer options > USB debugging on.
-3. Run exactly:
-   ```
-   adb shell dpm set-device-owner com.t53.telecom53.child/com.t53.telecom53.T53DeviceAdminReceiver
-   ```
-   The T53 setup screen shows (and can copy) this command for the installed build.
-4. Continue from step 5 above.
+The app declares network access only; it does not request Usage Access, Accessibility, location, or VPN permissions. In standard mode it does not block apps, make itself the home screen, or apply system restrictions. Use the phone normally.
 
-Until the apps are ticked, nothing but T53 can be opened, by design.
+### Backend connection status
 
-## Honest limits
-- Without device-owner setup the phone cannot be locked. T53 shows the setup screen instead of pretending it is protected.
-- A phone that is offline keeps its last rules. New rules apply when it reconnects.
-- If the phone is switched off and held by someone with physical and technical access to the bootloader, no app can stop that. Normal use by a child cannot reach it.
-- After "Allow removal" completes, the phone is retired from that license. Ask the admin for a new license to protect it again.
-- Emergency calls: Android's emergency dialer works from the lock screen regardless of this app list.
+The backend implementation is not present in this repository, so the pairing contract cannot be verified here. In particular, `Api.kt` currently sends the literal `******` as the `Authorization` header for authenticated requests. The enrollment response may be received while the follow-up authenticated status request fails. A locally saved token is not proof of a connected parent session; fix and verify the authorization scheme against the backend before relying on pairing.
 
-## Deploy the backend
-```bash
-cd backend
-./deploy.sh        # applies migrations (including 0004) and deploys the worker
+## Optional advanced device management
+
+Use this only for a dedicated device or a device that has been appropriately backed up and can be wiped. Android generally requires initial Device Owner provisioning on a clean or factory-reset device; exact steps vary by Android version and manufacturer.
+
+1. In T53 Child, explicitly choose **Set up advanced device management** and review the warning.
+2. Continue only if you intend to provision this test/child device. Cancel or use Back to return to ordinary setup without enrolling.
+3. Follow the displayed command using the exact package ID and Device Admin receiver component shown for the installed build. A debug build has a different application ID suffix.
+4. Run any provisioning command yourself from a trusted computer. T53 never invokes ADB or resets the device.
+5. Return to T53 and check Device Owner status. The app uses Android's `DevicePolicyManager` to determine ownership; it does not infer it from the setup button or pairing response.
+
+Do not factory-reset your everyday phone to try T53. Do not proceed if you do not understand or intend to complete the management setup.
+
+### Features and limits
+
+The current Child source applies app allow-list, kiosk, app-suspension, uninstall, and device restrictions only after Android confirms Device Owner status and only through the implemented `DevicePolicyManager` calls. Without that status, those restrictions are unavailable and the Child dashboard says so. Usage monitoring, Accessibility-based controls, and VPN filtering are not implemented.
+
+Device Owner can significantly restrict a phone. Test it only on a dedicated, backed-up device. OEM behavior, including Funtouch OS background behavior, has not been physically verified in this repository.
+
+## Build and regression tests
+
+Use JDK 17, Android SDK Platform 36, Android build-tools 36.0.0, and Gradle 8.11.1. The repository has no Gradle wrapper launch scripts or wrapper JAR; run the GitHub Actions test workflow or install Gradle 8.11.1 and invoke it directly.
+
+```sh
+python3 tools/verify-child-startup.py
+gradle --no-daemon -p android/t53-managed-child testDebugUnitTest
+gradle --no-daemon -p android/t53-managed-child assembleDebug
 ```
-Migration `0004_parent_password_app_policy.sql` adds the password columns, the app list and the approved-apps table.
 
-## Test the backend locally (no cloud account needed)
-```bash
-cd backend
-npm install
-npx wrangler --config ./wrangler.toml d1 migrations apply t53-telecom-53-db --local
-npx wrangler --config ./wrangler.toml dev --local --port 8788 \
-  --var AUTH_SECRET:local-test-secret-local-test-secret-123 --var T53_ENV:development
-# in a second terminal:
-node scripts/e2e-local.mjs
-```
-Expected last line: `43 passed, 0 failed`.
-
-## Troubleshooting
-- `dpm set-device-owner` says "already several users/accounts": remove all accounts (or factory reset) and retry.
-- Says "not allowed to set the device owner because there are already some accounts": same cause.
-- Apps still open: the phone has not synced yet. Open T53 and wait a minute, or check it is online.
-- Dashboard says wrong password after 5 tries: wait 15 minutes, or use "forgot password".
-
-## Email codes (required for first sign-in and password reset)
-The server sends the 6-digit code through Resend. Set these once, then redeploy:
-```bash
-cd backend
-npx wrangler --config ./wrangler.toml secret put RESEND_API_KEY
-npx wrangler --config ./wrangler.toml secret put FROM_EMAIL     # e.g. T53 <no-reply@dynamicrobotics53.com>, a sender verified in Resend
-npx wrangler --config ./wrangler.toml secret put AUTH_SECRET    # a long random string
-npx wrangler --config ./wrangler.toml secret list
-```
-Without these, the dashboard now says "email delivery is not set up" instead of pretending a code was sent.
-
-## Check the live server rejects wrong codes
-```bash
-curl -s https://t53.dynamicrobotics53.com/health
-curl -s -X POST https://t53.dynamicrobotics53.com/v1/auth/verify-otp -H 'content-type: application/json' -d '{"email":"you@example.com","code":"123456"}'
-```
-The second command must answer `"error":"otp_invalid"`. If it returns a `token`, the server is running old code: redeploy with `./deploy.sh`.
+The unit test covers fresh install without Device Owner, standard mode after pairing, and the requirement that advanced mode needs both pairing and verified Device Owner status. The Python check validates that the Activity routes those states to the matching screens and keeps Device Owner instructions behind the explicit advanced path.
